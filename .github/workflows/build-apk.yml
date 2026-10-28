@@ -242,13 +242,10 @@ jobs:
               double p = t > 0 ? Math.min(100,s * 100.0 / t) : 0;
               String v = "Saldo tersedia: " + money.format(a);
               v += "
-Tabungan: " + money.format(s);
-              v += "
-Total dana: " + money.format(a+s);
-              v += "
-Target: " + (t > 0 ? money.format(t) : "Belum diatur");
-              v += "
-Pencapaian: " + String.format(new Locale("id","ID"),"%.1f%%",p);
+              v += "Tabungan: " + money.format(s) + nl;
+              v += "Total dana: " + money.format(a+s) + nl;
+              v += "Target: " + (t > 0 ? money.format(t) : "Belum diatur") + nl;
+              v += "Pencapaian: " + String.format(new Locale("id","ID"),"%.1f%%",p) + nl;
               totals.setText(v);
               history.setText(db.getString("history","Belum ada transaksi."));
             }
