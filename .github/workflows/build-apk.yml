@@ -213,13 +213,10 @@ jobs:
                 Math.addExact(a,s);
                 SimpleDateFormat f = new SimpleDateFormat("dd/MM/yyyy HH:mm",new Locale("id","ID"));
                 f.setTimeZone(TimeZone.getTimeZone("Asia/Jakarta"));
-                String row = f.format(new Date()) + " WIB
-";
-                row += labels[type] + ": " + money.format(x) + "
-";
-                row += note.getText().toString() + "
-
-";
+                                String nl = System.lineSeparator();
+                String row = f.format(new Date()) + " WIB" + nl;
+                row += labels[type] + ": " + money.format(x) + nl;
+                row += note.getText().toString() + nl + nl;
                 boolean ok = db.edit()
                   .putLong("available",a)
                   .putLong("savings",s)
