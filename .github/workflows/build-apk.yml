@@ -1,277 +1,41 @@
-package com.finora.app;
+name: Build Android APK
 
-import android.app.AlertDialog;
-import android.graphics.Color;
-import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
-import android.os.Bundle;
-import android.text.InputType;
-import android.view.Gravity;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
-import androidx.appcompat.app.AppCompatActivity;
-import java.text.NumberFormat;
-import java.util.Locale;
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
-public class MainActivity extends AppCompatActivity {
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    private android.content.SharedPreferences db;
-    private NumberFormat money;
-    private LinearLayout historyBox;
-    private TextView saldoText, tabunganText, targetText, progressText;
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        db = getSharedPreferences("finora", MODE_PRIVATE);
-        money = NumberFormat.getCurrencyInstance(new Locale("id", "ID"));
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
 
-        ScrollView scroll = new ScrollView(this);
-        scroll.setBackgroundColor(Color.parseColor("#F4F6FB"));
-        scroll.setFillViewport(true);
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: ""
 
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(20), dp(20), dp(28));
-        scroll.addView(root);
+      - name: Install Android platforms and build tools
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-        TextView brand = new TextView(this);
-        brand.setText("FINORA");
-        brand.setTextColor(Color.WHITE);
-        brand.setTextSize(26);
-        brand.setTypeface(Typeface.DEFAULT_BOLD);
-        brand.setPadding(dp(22), dp(26), dp(22), dp(6));
-        root.addView(brand);
+      - name: Build debug APK
+        run: gradle --no-daemon :app:assembleDebug
 
-        TextView subtitle = new TextView(this);
-        subtitle.setText("Kelola uangmu dengan lebih tenang");
-        subtitle.setTextColor(Color.parseColor("#DCE7FF"));
-        subtitle.setTextSize(14);
-        subtitle.setPadding(dp(22), 0, dp(22), dp(24));
-        root.addView(subtitle);
-
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.VERTICAL);
-        header.setBackground(round(Color.parseColor("#1F5EFF"), 26));
-        header.setPadding(dp(22), dp(24), dp(22), dp(26));
-
-        addLabel(header, "Saldo tersedia", Color.parseColor("#C9D8FF"));
-        saldoText = addValue(header, "Rp0", Color.WHITE, 30);
-        root.addView(card(header, 0, 0, 0, 18));
-
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-
-        LinearLayout saveCard = new LinearLayout(this);
-        saveCard.setOrientation(LinearLayout.VERTICAL);
-        saveCard.setBackground(round(Color.WHITE, 22));
-        saveCard.setPadding(dp(18), dp(18), dp(18), dp(18));
-        addLabel(saveCard, "Tabungan", Color.parseColor("#68758C"));
-        tabunganText = addValue(saveCard, "Rp0", Color.parseColor("#12203A"), 20);
-        row.addView(card(saveCard, 0, 0, 8, 0), weight());
-
-        LinearLayout targetCard = new LinearLayout(this);
-        targetCard.setOrientation(LinearLayout.VERTICAL);
-        targetCard.setBackground(round(Color.WHITE, 22));
-        targetCard.setPadding(dp(18), dp(18), dp(18), dp(18));
-        addLabel(targetCard, "Target", Color.parseColor("#68758C"));
-        targetText = addValue(targetCard, "Belum diatur", Color.parseColor("#12203A"), 20);
-        row.addView(card(targetCard, 8, 0, 0, 0), weight());
-
-        root.addView(row);
-
-        LinearLayout progressCard = new LinearLayout(this);
-        progressCard.setOrientation(LinearLayout.VERTICAL);
-        progressCard.setBackground(round(Color.WHITE, 22));
-        progressCard.setPadding(dp(18), dp(18), dp(18), dp(18));
-        addLabel(progressCard, "Pencapaian target", Color.parseColor("#68758C"));
-        progressText = addValue(progressCard, "0%", Color.parseColor("#1F5EFF"), 22);
-        root.addView(card(progressCard, 0, 14, 0, 18));
-
-        button(root, "Tambah pemasukan", "#16A34A", () -> record(0));
-        button(root, "Catat pengeluaran", "#EF4444", () -> record(1));
-        button(root, "Setor tabungan", "#1F5EFF", () -> record(2));
-        button(root, "Tarik tabungan", "#64748B", () -> record(3));
-        button(root, "Atur target tabungan", "#7C3AED", this::target);
-
-        TextView historyTitle = new TextView(this);
-        historyTitle.setText("Riwayat");
-        historyTitle.setTextColor(Color.parseColor("#12203A"));
-        historyTitle.setTextSize(20);
-        historyTitle.setTypeface(Typeface.DEFAULT_BOLD);
-        historyTitle.setPadding(0, dp(18), 0, dp(10));
-        root.addView(historyTitle);
-
-        historyBox = new LinearLayout(this);
-        historyBox.setOrientation(LinearLayout.VERTICAL);
-        historyBox.setBackground(round(Color.WHITE, 22));
-        historyBox.setPadding(dp(18), dp(18), dp(18), dp(18));
-        root.addView(historyBox);
-
-        setContentView(scroll);
-        refresh();
-    }
-
-    private LinearLayout.LayoutParams weight() {
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
-        return p;
-    }
-
-    private LinearLayout card(View child, int left, int top, int right, int bottom) {
-        LinearLayout wrapper = new LinearLayout(this);
-        wrapper.setOrientation(LinearLayout.VERTICAL);
-        wrapper.addView(child);
-        wrapper.setPadding(dp(left), dp(top), dp(right), dp(bottom));
-        return wrapper;
-    }
-
-    private void addLabel(LinearLayout parent, String text, int color) {
-        TextView t = new TextView(this);
-        t.setText(text);
-        t.setTextColor(color);
-        t.setTextSize(13);
-        parent.addView(t);
-    }
-
-    private TextView addValue(LinearLayout parent, String text, int color, float size) {
-        TextView t = new TextView(this);
-        t.setText(text);
-        t.setTextColor(color);
-        t.setTextSize(size);
-        t.setTypeface(Typeface.DEFAULT_BOLD);
-        t.setPadding(0, dp(4), 0, 0);
-        parent.addView(t);
-        return t;
-    }
-
-    private void button(LinearLayout parent, String label, String color, Runnable action) {
-        Button b = new Button(this);
-        b.setText(label);
-        b.setAllCaps(false);
-        b.setTextColor(Color.WHITE);
-        b.setTextSize(15);
-        b.setBackground(round(Color.parseColor(color), 18));
-        b.setPadding(dp(18), dp(14), dp(18), dp(14));
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        p.topMargin = dp(10);
-        b.setLayoutParams(p);
-        b.setOnClickListener(v -> action.run());
-        parent.addView(b);
-    }
-
-    private GradientDrawable round(int color, int radius) {
-        GradientDrawable d = new GradientDrawable();
-        d.setColor(color);
-        d.setCornerRadius(dp(radius));
-        return d;
-    }
-
-    private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
-    }
-
-    void record(int type) {
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(dp(20), dp(10), dp(20), 0);
-
-        EditText amount = new EditText(this);
-        amount.setInputType(InputType.TYPE_CLASS_NUMBER);
-        amount.setHint("Nominal Rupiah");
-        box.addView(amount);
-
-        EditText note = new EditText(this);
-        note.setHint("Catatan opsional");
-        box.addView(note);
-
-        String title = type == 0 ? "Tambah pemasukan" : type == 1 ? "Catat pengeluaran" : type == 2 ? "Setor tabungan" : "Tarik tabungan";
-        new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setView(box)
-                .setPositiveButton("Simpan", (d, w) -> {
-                    try {
-                        long x = Long.parseLong(amount.getText().toString().trim());
-                        if (x <= 0) return;
-                        long a = db.getLong("available", 0);
-                        long s = db.getLong("savings", 0);
-                        String noteText = note.getText().toString().trim();
-                        String label = type == 0 ? "Pemasukan" : type == 1 ? "Pengeluaran" : type == 2 ? "Setor tabungan" : "Tarik tabungan";
-
-                        if (type == 0) a += x;
-                        else if (type == 1) a -= x;
-                        else if (type == 2) { a -= x; s += x; }
-                        else { a += x; s -= x; }
-
-                        db.edit().putLong("available", a).putLong("savings", s).apply();
-                        addHistory(label + " " + money.format(x) + (noteText.isEmpty() ? "" : " - " + noteText));
-                        refresh();
-                    } catch (Exception e) {
-                        // Abaikan input kosong atau tidak valid
-                    }
-                })
-                .setNegativeButton("Batal", null)
-                .show();
-    }
-
-    void target() {
-        EditText input = new EditText(this);
-        input.setInputType(InputType.TYPE_CLASS_NUMBER);
-        input.setHint("Nominal target Rupiah");
-        new AlertDialog.Builder(this)
-                .setTitle("Target tabungan")
-                .setView(input)
-                .setPositiveButton("Simpan", (d, w) -> {
-                    try {
-                        long t = Long.parseLong(input.getText().toString().trim());
-                        db.edit().putLong("target", t).apply();
-                        refresh();
-                    } catch (Exception e) {
-                        // Abaikan input tidak valid
-                    }
-                })
-                .setNegativeButton("Batal", null)
-                .show();
-    }
-
-    void addHistory(String text) {
-        String old = db.getString("history", "");
-        String item = java.text.DateFormat.getDateTimeInstance().format(new java.util.Date()) + "\n" + text;
-        String value = old.isEmpty() ? item : item + "\n\n" + old;
-        db.edit().putString("history", value).apply();
-    }
-
-    void refresh() {
-        long a = db.getLong("available", 0);
-        long s = db.getLong("savings", 0);
-        long t = db.getLong("target", 0);
-        double p = t > 0 ? Math.min(100, s * 100.0 / t) : 0;
-
-        saldoText.setText(money.format(a));
-        tabunganText.setText(money.format(s));
-        targetText.setText(t > 0 ? money.format(t) : "Belum diatur");
-        progressText.setText(String.format(new Locale("id", "ID"), "%.1f%%", p));
-
-        historyBox.removeAllViews();
-        String history = db.getString("history", "");
-        if (history.isEmpty()) {
-            TextView empty = new TextView(this);
-            empty.setText("Belum ada transaksi.");
-            empty.setTextColor(Color.parseColor("#68758C"));
-            historyBox.addView(empty);
-            return;
-        }
-        for (String item : history.split("\n\n")) {
-            TextView rowText = new TextView(this);
-            rowText.setText(item);
-            rowText.setTextColor(Color.parseColor("#12203A"));
-            rowText.setTextSize(14);
-            rowText.setPadding(0, 0, 0, dp(12));
-            historyBox.addView(rowText);
-        }
-    }
-}
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Finora-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
