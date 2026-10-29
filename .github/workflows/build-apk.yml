@@ -241,7 +241,7 @@ jobs:
               long t = db.getLong("target",0);
               double p = t > 0 ? Math.min(100,s * 100.0 / t) : 0;
               String v = "Saldo tersedia: " + money.format(a);
-              v += "
+                            v += nl;
               v += "Tabungan: " + money.format(s) + nl;
               v += "Total dana: " + money.format(a+s) + nl;
               v += "Target: " + (t > 0 ? money.format(t) : "Belum diatur") + nl;
