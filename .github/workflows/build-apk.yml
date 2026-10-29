@@ -100,6 +100,7 @@ jobs:
           import java.util.*;
 
           public class MainActivity extends Activity {
+                private final String nl = System.lineSeparator();
             SharedPreferences db;
             LinearLayout box;
             TextView totals, history;
